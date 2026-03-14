@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ViraSphere 🌍 — One place for the world's most viral moments</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            neon: { purple: '#a855f7', cyan: '#22d3ee', pink: '#ec4899', green: '#34d399' },
+            glass: { dark: 'rgba(15,15,30,0.7)', light: 'rgba(255,255,255,0.15)' },
+            surface: { dark: '#0a0a1a', light: '#f3f4f6' }
+          },
+          animation: {
+            'glow': 'glow 2s ease-in-out infinite alternate',
+            'fade-in': 'fadeIn 0.3s ease-out',
+            'slide-up': 'slideUp 0.4s ease-out',
+            'pulse-neon': 'pulseNeon 2s ease-in-out infinite',
+          },
+          keyframes: {
+            glow: { '0%': { boxShadow: '0 0 5px #a855f7, 0 0 10px #a855f7' }, '100%': { boxShadow: '0 0 10px #22d3ee, 0 0 20px #22d3ee' } },
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            pulseNeon: { '0%,100%': { boxShadow: '0 0 5px #a855f7, 0 0 15px #a855f7' }, '50%': { boxShadow: '0 0 10px #ec4899, 0 0 30px #ec4899' } }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* ========== CUSTOM STYLES ========== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    body { scroll-behavior: smooth; }
+    .glass-card {
+      background: rgba(15, 15, 30, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(168, 85, 247, 0.15);
+    }
+    html:not(.dark) .glass-card {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+    }
+    .glass-card:hover {
+      border-color: rgba(34, 211, 238, 0.4);
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.15), 0 8px 32px rgba(0,0,0,0.3);
+      transform: translateY(-4px) scale(1.01);
+    }
+    .glass-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .tab-active { border-bottom: 2px solid #a855f7; color: #a855f7 !important; }
+    html:not(.dark) .tab-active { color: #7c3aed !important; border-color: #7c3aed; }
+    .neon-btn {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+      transition: all 0.3s;
+    }
+    .neon-btn:hover { box-shadow: 0 0 25px rgba(168, 85, 247, 0.6); transform: scale(1.05); }
+    .pill-active { background: linear-gradient(135deg, #a855f7, #22d3ee); color: white !important; }
+    .modal-overlay { backdrop-filter: blur(8px); background: rgba(0,0,0,0.6); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a1a; }
+    ::-webkit-scrollbar-thumb { background: #a855f7; border-radius: 3px; }
+    html:not(.dark) ::-webkit-scrollbar-track { background: #f3f4f6; }
+    .hero-gradient { background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(34,211,238,0.2), rgba(236,72,153,0.2)); }
+    .toast { animation: slideUp 0.4s ease-out, fadeOut 0.4s ease-in 2.6s forwards; }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+    .upvote-pop { animation: pop 0.3s ease-out; }
+    @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .shimmer { background: linear-gradient(90deg, transparent, rgba(168,85,247,0.08), transparent); background-size: 200% 100%; animation: shimmer 2s infinite; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  </style>
+</head>
+<body class="bg-surface-dark text-gray-100 min-h-screen transition-colors duration-300">
+
+<!-- ========== TOAST CONTAINER ========== -->
+<div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2"></div>
+
+<!-- ========== HEADER / NAVBAR ========== -->
+<header class="sticky top-0 z-50 glass-card border-b border-purple-500/20">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <!-- Logo -->
+    <a href="#" class="flex items-center gap-2 shrink-0" onclick="switchTab('home');return false;">
+      <span class="text-2xl">🌍</span>
+      <span class="text-xl font-extrabold bg-gradient-to-r from-neon-purple via-neon-pink to-neon-cyan bg-clip-text text-transparent">ViraSphere</span>
+    </a>
+    <!-- Search Bar (desktop) -->
+    <div class="hidden md:flex flex-1 max-w-md mx-4">
+      <div class="relative w-full">
+        <input id="search-input" type="text" placeholder="Search viral moments..." class="w-full bg-white/5 dark:bg-white/5 bg-gray-200 border border-purple-500/30 rounded-full px-4 py-2 pl-10 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all dark:text-gray-100 text-gray-800" oninput="handleSearch(this.value)">
+        <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+    </div>
+    <!-- Right Controls -->
+    <div class="flex items-center gap-3">
+      <!-- Dark/Light Toggle -->
+      <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-white/10 transition-colors" title="Toggle theme">
+        <span id="theme-icon" class="text-xl">🌙</span>
+      </button>
+      <!-- Mobile Search Toggle -->
+      <button onclick="toggleMobileSearch()" class="md:hidden p-2 rounded-full hover:bg-white/10">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </button>
+      <!-- Hamburger Menu -->
+      <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-full hover:bg-white/10">
+        <svg id="hamburger-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Mobile Search (hidden by default) -->
+  <div id="mobile-search" class="hidden px-4 pb-3 md:hidden">
+    <input type="text" placeholder="Search viral moments..." class="w-full bg-white/5 border border-purple-500/30 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-neon-cyan dark:text-gray-100 text-gray-800" oninput="handleSearch(this.value)">
+  </div>
+  <!-- Mobile Menu (hidden by default) -->
+  <nav id="mobile-menu" class="hidden md:hidden px-4 pb-4 space-y-1">
+    <button onclick="switchTab('home');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">🏠 Home</button>
+    <button onclick="switchTab('news');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">📰 News</button>
+    <button onclick="switchTab('social');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">💬 Social Buzz</button>
+    <button onclick="switchTab('videos');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">🎬 Viral Videos</button>
+    <button onclick="switchTab('memes');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">😂 Memes</button>
+    <button onclick="switchTab('community');closeMobileMenu()" class="block w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">🌐 Community</button>
+  </nav>
+</header>
+
+<!-- ========== MAIN LAYOUT ========== -->
+<div class="max-w-7xl mx-auto flex">
+
+  <!-- ========== SIDEBAR (Desktop) ========== -->
+  <aside class="hidden lg:block w-64 shrink-0 p-4 sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto">
+    <div class="glass-card rounded-2xl p-4 mb-4">
+      <h3 class="text-sm font-semibold text-neon-purple mb-3 uppercase tracking-wider">Region</h3>
+      <div class="space-y-1" id="region-filters">
+        <button onclick="setFilter('region','all')" class="filter-pill pill-active w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="all">🌍 Worldwide</button>
+        <button onclick="setFilter('region','asia')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="asia">🌏 Asia</button>
+        <button onclick="setFilter('region','americas')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="americas">🌎 Americas</button>
+        <button onclick="setFilter('region','europe')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="europe">🌍 Europe</button>
+        <button onclick="setFilter('region','africa')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="africa">🌍 Africa</button>
+        <button onclick="setFilter('region','oceania')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-region="oceania">🌏 Oceania</button>
+      </div>
+    </div>
+    <div class="glass-card rounded-2xl p-4 mb-4">
+      <h3 class="text-sm font-semibold text-neon-cyan mb-3 uppercase tracking-wider">Time</h3>
+      <div class="space-y-1" id="time-filters">
+        <button onclick="setFilter('time','24h')" class="filter-pill pill-active w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-time="24h">⚡ Last 24h</button>
+        <button onclick="setFilter('time','week')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-time="week">📅 This week</button>
+        <button onclick="setFilter('time','all')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-time="all">♾️ All time</button>
+      </div>
+    </div>
+    <div class="glass-card rounded-2xl p-4 mb-4">
+      <h3 class="text-sm font-semibold text-neon-pink mb-3 uppercase tracking-wider">Sort By</h3>
+      <div class="space-y-1" id="sort-filters">
+        <button onclick="setFilter('sort','hot')" class="filter-pill pill-active w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-sort="hot">🔥 Hottest</button>
+        <button onclick="setFilter('sort','latest')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-sort="latest">🕐 Latest</button>
+        <button onclick="setFilter('sort','upvoted')" class="filter-pill w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all hover:bg-white/10" data-sort="upvoted">⬆️ Most Upvoted</button>
+      </div>
+    </div>
+    <button onclick="refreshViralData()" class="neon-btn w-full py-2.5 rounded-xl text-white font-semibold text-sm">🔄 Refresh Viral Data</button>
+  </aside>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="flex-1 min-w-0 px-4 py-4">
+
+    <!-- Mobile Filter Pills -->
+    <div class="lg:hidden mb-4 overflow-x-auto pb-2">
+      <div class="flex gap-2 min-w-max">
+        <button onclick="setFilter('region','all')" class="filter-pill-mobile pill-active px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-region="all">🌍 Worldwide</button>
+        <button onclick="setFilter('region','asia')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-region="asia">🌏 Asia</button>
+        <button onclick="setFilter('region','americas')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-region="americas">🌎 Americas</button>
+        <button onclick="setFilter('region','europe')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-region="europe">🌍 Europe</button>
+        <button onclick="setFilter('region','africa')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-region="africa">🌍 Africa</button>
+        <span class="border-l border-purple-500/30 mx-1"></span>
+        <button onclick="setFilter('sort','hot')" class="filter-pill-mobile pill-active px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-sort="hot">🔥 Hot</button>
+        <button onclick="setFilter('sort','latest')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-sort="latest">🕐 Latest</button>
+        <button onclick="setFilter('sort','upvoted')" class="filter-pill-mobile px-3 py-1.5 rounded-full text-xs font-medium border border-purple-500/30 transition-all" data-sort="upvoted">⬆️ Top</button>
+        <span class="border-l border-purple-500/30 mx-1"></span>
+        <button onclick="refreshViralData()" class="px-3 py-1.5 rounded-full text-xs font-medium border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 transition-all">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- ========== TABS ========== -->
+    <div class="hidden md:flex gap-1 mb-6 border-b border-purple-500/20 overflow-x-auto">
+      <button onclick="switchTab('home')" class="tab-btn tab-active px-4 py-2.5 text-sm font-medium transition-all hover:text-neon-purple whitespace-nowrap" data-tab="home">🏠 Home</button>
+      <button onclick="switchTab('news')" class="tab-btn px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:text-neon-purple whitespace-nowrap" data-tab="news">📰 News</button>
+      <button onclick="switchTab('social')" class="tab-btn px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:text-neon-purple whitespace-nowrap" data-tab="social">💬 Social Buzz</button>
+      <button onclick="switchTab('videos')" class="tab-btn px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:text-neon-purple whitespace-nowrap" data-tab="videos">🎬 Viral Videos</button>
+      <button onclick="switchTab('memes')" class="tab-btn px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:text-neon-purple whitespace-nowrap" data-tab="memes">😂 Memes</button>
+      <button onclick="switchTab('community')" class="tab-btn px-4 py-2.5 text-sm font-medium text-gray-400 transition-all hover:text-neon-purple whitespace-nowrap" data-tab="community">🌐 Community</button>
+    </div>
+    <!-- Mobile Bottom Tab Bar rendered later -->
+
+    <!-- TAB CONTENT CONTAINER -->
+    <div id="tab-content"></div>
+
+    <!-- LOAD MORE -->
+    <div class="text-center py-8" id="load-more-container">
+      <button onclick="loadMore()" class="px-6 py-3 rounded-xl border border-purple-500/30 text-neon-purple hover:bg-purple-500/10 transition-all font-medium text-sm">Load More Viral Content ⬇️</button>
+    </div>
+  </main>
+</div>
+
+<!-- ========== FLOATING CONTRIBUTE BUTTON ========== -->
+<button onclick="openContributeModal()" class="fixed bottom-20 md:bottom-8 right-6 z-40 neon-btn animate-pulse-neon px-5 py-3 rounded-full text-white font-bold text-sm flex items-center gap-2 shadow-2xl">
+  <span class="text-lg">+</span> Contribute
+</button>
+
+<!-- ========== MOBILE BOTTOM TAB BAR ========== -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-card border-t border-purple-500/20 flex justify-around py-2">
+  <button onclick="switchTab('home')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-neon-purple" data-tab="home"><span class="text-lg">🏠</span><span class="text-[10px]">Home</span></button>
+  <button onclick="switchTab('news')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-gray-400" data-tab="news"><span class="text-lg">📰</span><span class="text-[10px]">News</span></button>
+  <button onclick="switchTab('social')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-gray-400" data-tab="social"><span class="text-lg">💬</span><span class="text-[10px]">Social</span></button>
+  <button onclick="switchTab('videos')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-gray-400" data-tab="videos"><span class="text-lg">🎬</span><span class="text-[10px]">Videos</span></button>
+  <button onclick="switchTab('memes')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-gray-400" data-tab="memes"><span class="text-lg">😂</span><span class="text-[10px]">Memes</span></button>
+  <button onclick="switchTab('community')" class="mobile-tab flex flex-col items-center gap-0.5 px-2 py-1 text-gray-400" data-tab="community"><span class="text-lg">🌐</span><span class="text-[10px]">Community</span></button>
+</nav>
+
+<!-- ========== CONTRIBUTE MODAL ========== -->
+<div id="contribute-modal" class="hidden fixed inset-0 z-[80] modal-overlay flex items-center justify-center p-4">
+  <div class="glass-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 animate-slide-up">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-xl font-bold bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text text-transparent">✨ Contribute Viral Content</h2>
+      <button onclick="closeContributeModal()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="contribute-form" onsubmit="handleContribute(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1 text-gray-300">Title *</label>
+        <input name="title" required maxlength="120" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800" placeholder="What's going viral?">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 text-gray-300">Description *</label>
+        <textarea name="description" required maxlength="300" rows="3" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800 resize-none" placeholder="Tell us more..."></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1 text-gray-300">Category *</label>
+          <select name="category" required class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan dark:text-gray-100 text-gray-800 dark:bg-gray-900 bg-white">
+            <option value="news">📰 News</option>
+            <option value="video">🎬 Video</option>
+            <option value="meme">😂 Meme</option>
+            <option value="event">🎉 Event</option>
+            <option value="other">💡 Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1 text-gray-300">Your Country *</label>
+          <input name="country" required class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800" placeholder="e.g. India">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 text-gray-300">URL / Link (optional)</label>
+        <input name="link" type="url" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800" placeholder="https://...">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 text-gray-300">Image URL (optional)</label>
+        <input name="imageUrl" type="url" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800" placeholder="https://picsum.photos/600/400">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1 text-gray-300">Your Name *</label>
+        <input name="authorName" required class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan transition-colors dark:text-gray-100 text-gray-800" placeholder="Your name">
+      </div>
+      <button type="submit" class="neon-btn w-full py-3 rounded-xl text-white font-bold text-sm mt-2">🚀 Submit to Community</button>
+    </form>
+  </div>
+</div>
+
+<!-- ========== VIDEO MODAL ========== -->
+<div id="video-modal" class="hidden fixed inset-0 z-[80] modal-overlay flex items-center justify-center p-4">
+  <div class="w-full max-w-3xl animate-slide-up">
+    <div class="flex justify-end mb-2">
+      <button onclick="closeVideoModal()" class="p-2 bg-black/50 hover:bg-white/10 rounded-full transition-colors text-white">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="relative w-full" style="padding-bottom:56.25%;">
+      <iframe id="video-iframe" class="absolute inset-0 w-full h-full rounded-2xl" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+// ===========================
+// DATA: Viral content arrays
+// ===========================
+
+const regionMap = {
+  'India': 'asia', 'Japan': 'asia', 'South Korea': 'asia', 'China': 'asia', 'Philippines': 'asia', 'Indonesia': 'asia',
+  'USA': 'americas', 'Brazil': 'americas', 'Mexico': 'americas', 'Canada': 'americas', 'Argentina': 'americas',
+  'UK': 'europe', 'France': 'europe', 'Germany': 'europe', 'Spain': 'europe', 'Italy': 'europe',
+  'Nigeria': 'africa', 'South Africa': 'africa', 'Kenya': 'africa', 'Egypt': 'africa',
+  'Australia': 'oceania', 'New Zealand': 'oceania',
+  'Worldwide': 'all'
+};
+
+const newsData = [
+  { id: 'n1', title: "Elon Musk's latest tweet breaks all engagement records", description: "A single post about AI consciousness reaches 500M views in 3 hours, making it the most viral tweet in platform history.", source: "X / Twitter", timeAgo: "2h ago", category: "news", imageUrl: "https://picsum.photos/seed/musk/600/400", link: "#", upvotes: 89400, region: "USA" },
+  { id: 'n2', title: "India launches world's first solar-powered bullet train", description: "The Surya Express reaches 350 km/h using entirely renewable energy, stunning the global transportation industry.", source: "Reuters", timeAgo: "4h ago", category: "news", imageUrl: "https://picsum.photos/seed/train/600/400", link: "#", upvotes: 67200, region: "India" },
+  { id: 'n3', title: "RRR song 'Naatu Naatu' goes viral again in Korean schools", description: "Students across Seoul recreate the iconic dance, with videos flooding TikTok and reaching 200M combined views.", source: "K-Herald", timeAgo: "6h ago", category: "news", imageUrl: "https://picsum.photos/seed/rrr/600/400", link: "#", upvotes: 54300, region: "South Korea" },
+  { id: 'n4', title: "New iPhone 17 leak surfaces from Shenzhen factory", description: "Photos show a radical foldable design with holographic display technology, sending tech Twitter into a frenzy.", source: "TechCrunch", timeAgo: "1h ago", category: "news", imageUrl: "https://picsum.photos/seed/iphone/600/400", link: "#", upvotes: 71800, region: "China" },
+  { id: 'n5', title: "Brazil's Amazon reforestation hits historic milestone", description: "10 million trees planted in a single month through a viral TikTok challenge that mobilized 2 million volunteers.", source: "BBC World", timeAgo: "8h ago", category: "news", imageUrl: "https://picsum.photos/seed/amazon/600/400", link: "#", upvotes: 92100, region: "Brazil" },
+  { id: 'n6', title: "AI-generated music tops Billboard Hot 100 for first time", description: "A song created entirely by AI reaches #1, sparking global debate about creativity and copyright in the age of artificial intelligence.", source: "Billboard", timeAgo: "5h ago", category: "news", imageUrl: "https://picsum.photos/seed/aimusic/600/400", link: "#", upvotes: 48700, region: "USA" },
+  { id: 'n7', title: "Nigeria's Afrobeats artist breaks Spotify's all-time record", description: "Burna Boy's new album accumulates 1 billion streams in its first week, surpassing every previous record.", source: "Spotify News", timeAgo: "3h ago", category: "news", imageUrl: "https://picsum.photos/seed/afrobeats/600/400", link: "#", upvotes: 63400, region: "Nigeria" },
+  { id: 'n8', title: "Japan unveils real-life Gundam that actually walks", description: "Yokohama's latest engineering marvel: a 60-foot Gundam robot that takes its first autonomous steps to massive crowds.", source: "NHK World", timeAgo: "7h ago", category: "news", imageUrl: "https://picsum.photos/seed/gundam/600/400", link: "#", upvotes: 85600, region: "Japan" },
+  { id: 'n9', title: "World's largest underwater restaurant opens in Norway", description: "The restaurant seats 300 guests with panoramic views of the ocean floor. Reservations sold out for 2 years.", source: "CNN Travel", timeAgo: "10h ago", category: "news", imageUrl: "https://picsum.photos/seed/underwater/600/400", link: "#", upvotes: 37200, region: "UK" },
+  { id: 'n10', title: "Australia discovers high-temperature high-energy battery mineral", description: "A massive lithium deposit found in Western Australia could power the entire planet's EV transition.", source: "ABC News", timeAgo: "12h ago", category: "news", imageUrl: "https://picsum.photos/seed/lithium/600/400", link: "#", upvotes: 29800, region: "Australia" }
+];
+
+const socialData = [
+  { id: 's1', title: "@elonmusk: 'Consciousness is just the universe debugging itself'", description: "The philosophical tweet sparks a global debate with 2M replies in under an hour. Academics and comedians weigh in.", source: "X", timeAgo: "30m ago", category: "social", imageUrl: "https://picsum.photos/seed/xtweet1/600/400", link: "#", upvotes: 124000, region: "USA" },
+  { id: 's2', title: "Indian grandma's cooking channel hits 50M subscribers", description: "Mastanamma's successor, 92-year-old Kamla Devi, becomes the fastest-growing cooking channel in YouTube history.", source: "YouTube", timeAgo: "2h ago", category: "social", imageUrl: "https://picsum.photos/seed/grandma/600/400", link: "#", upvotes: 98300, region: "India" },
+  { id: 's3', title: "Brazilian footballer's goal celebration dance breaks TikTok", description: "Neymar Jr's samba celebration spawns 15M recreations overnight, crashing TikTok servers in South America.", source: "TikTok", timeAgo: "4h ago", category: "social", imageUrl: "https://picsum.photos/seed/neymar/600/400", link: "#", upvotes: 76500, region: "Brazil" },
+  { id: 's4', title: "#CatLawyerReturns trends after judge's cat filter strikes again", description: "Another Zoom court hearing goes viral as a lawyer accidentally appears as a potato this time. 'I am not a potato.'", source: "X", timeAgo: "1h ago", category: "social", imageUrl: "https://picsum.photos/seed/catlawyer/600/400", link: "#", upvotes: 112000, region: "USA" },
+  { id: 's5', title: "Korean street food vendor becomes overnight TikTok sensation", description: "His tornado potato technique video hits 300M views. Now has a 6-hour wait line in Myeongdong, Seoul.", source: "TikTok", timeAgo: "3h ago", category: "social", imageUrl: "https://picsum.photos/seed/kfood/600/400", link: "#", upvotes: 67800, region: "South Korea" },
+  { id: 's6', title: "Nigerian comedian's skit gets reposted by Kevin Hart", description: "Mark Angel's latest comedy skit about African parents gets shared by Hollywood stars, crossing 100M views.", source: "Instagram", timeAgo: "6h ago", category: "social", imageUrl: "https://picsum.photos/seed/comedy/600/400", link: "#", upvotes: 54200, region: "Nigeria" },
+  { id: 's7', title: "Japanese cat cafe introduces robot cat waiters", description: "Photos of robotic cats serving coffee go viral. 'The future is meow' becomes the top trending hashtag in Japan.", source: "X", timeAgo: "5h ago", category: "social", imageUrl: "https://picsum.photos/seed/catcafe/600/400", link: "#", upvotes: 43900, region: "Japan" },
+  { id: 's8', title: "Duolingo owl spotted at the Met Gala", description: "The giant green owl mascot walks the red carpet in a custom Balenciaga gown. Internet loses its collective mind.", source: "Instagram", timeAgo: "8h ago", category: "social", imageUrl: "https://picsum.photos/seed/duolingo/600/400", link: "#", upvotes: 89100, region: "USA" },
+  { id: 's9', title: "French baker's croissant tutorial breaks the internet", description: "His 60-second perfectly-layered croissant video earns 200M views and crashes multiple recipe websites.", source: "TikTok", timeAgo: "9h ago", category: "social", imageUrl: "https://picsum.photos/seed/croissant/600/400", link: "#", upvotes: 38700, region: "France" },
+  { id: 's10', title: "Random dog photobombs live news broadcast, becomes meme", description: "A golden retriever steals the spotlight during BBC live coverage, earning its own verified Twitter account within hours.", source: "BBC / X", timeAgo: "45m ago", category: "social", imageUrl: "https://picsum.photos/seed/dogmeme/600/400", link: "#", upvotes: 95400, region: "UK" }
+];
+
+const videoData = [
+  { id: 'v1', title: "Never Gonna Give You Up — The Eternal Rickroll", description: "The legendary rickroll that has transcended generations. Over 1.5 billion views and still climbing.", source: "YouTube", timeAgo: "∞", category: "video", imageUrl: "https://picsum.photos/seed/rickroll/600/400", link: "#", upvotes: 999999, region: "Worldwide", videoId: "dQw4w9WgXcQ" },
+  { id: 'v2', title: "Baby Shark surpasses 15 billion views", description: "The unstoppable children's song continues its reign as the most-watched video in YouTube history.", source: "YouTube", timeAgo: "1d ago", category: "video", imageUrl: "https://picsum.photos/seed/babyshark/600/400", link: "#", upvotes: 87200, region: "South Korea", videoId: "XqZsoesa55w" },
+  { id: 'v3', title: "SpaceX Starship's perfect landing filmed from space", description: "Stunning footage from ISS cameras captures the moment Starship executes a flawless landing on the drone ship.", source: "SpaceX", timeAgo: "6h ago", category: "video", imageUrl: "https://picsum.photos/seed/spacex/600/400", link: "#", upvotes: 73400, region: "USA", videoId: "gLNQ6Mq5kbg" },
+  { id: 'v4', title: "Street musician stuns crowd with Bohemian Rhapsody on glass harp", description: "A London busker performs Queen's masterpiece using wine glasses filled with water. 50M views in 2 days.", source: "YouTube", timeAgo: "2d ago", category: "video", imageUrl: "https://picsum.photos/seed/glassharp/600/400", link: "#", upvotes: 62100, region: "UK", videoId: "48RsLNjMZHk" },
+  { id: 'v5', title: "India's Got Talent act leaves judges speechless", description: "A 12-year-old from rural Rajasthan performs classical fusion that brings the entire audience to tears.", source: "YouTube", timeAgo: "12h ago", category: "video", imageUrl: "https://picsum.photos/seed/talent/600/400", link: "#", upvotes: 58900, region: "India", videoId: "VtJFb_P2j48" },
+  { id: 'v6', title: "Gordon Ramsay tries Nigerian jollof rice for the first time", description: "The chef's genuine reaction of shock and delight becomes the most-shared food video of the year.", source: "YouTube", timeAgo: "3h ago", category: "video", imageUrl: "https://picsum.photos/seed/ramsay/600/400", link: "#", upvotes: 81300, region: "Nigeria", videoId: "PUP7U5vTMM0" },
+  { id: 'v7', title: "Japanese precision domino world record — 5 million pieces", description: "A team of 200 artists spent 3 months setting up the most elaborate domino chain reaction ever filmed.", source: "YouTube", timeAgo: "1d ago", category: "video", imageUrl: "https://picsum.photos/seed/domino/600/400", link: "#", upvotes: 44500, region: "Japan", videoId: "lo6x4eulY9g" },
+  { id: 'v8', title: "Drone light show over Sydney Opera House breaks record", description: "10,000 drones create a moving 3D hologram above the harbor in a show watched by 2 million people live.", source: "YouTube", timeAgo: "8h ago", category: "video", imageUrl: "https://picsum.photos/seed/droneshow/600/400", link: "#", upvotes: 39800, region: "Australia", videoId: "eHSEhhKUwVA" },
+  { id: 'v9', title: "MrBeast gives away an entire island", description: "In his most ambitious video yet, MrBeast purchases and gives away a private island to a random subscriber.", source: "YouTube", timeAgo: "5h ago", category: "video", imageUrl: "https://picsum.photos/seed/mrbeast/600/400", link: "#", upvotes: 156000, region: "USA", videoId: "erLbbexCYOo" },
+  { id: 'v10', title: "K-pop flash mob takes over Times Square", description: "500 dancers perform a synchronized BTS choreography in the middle of Times Square, stopping traffic.", source: "YouTube", timeAgo: "4h ago", category: "video", imageUrl: "https://picsum.photos/seed/kpop/600/400", link: "#", upvotes: 71200, region: "USA", videoId: "gdZLi9oWNZg" }
+];
+
+const memeData = [
+  { id: 'm1', title: "Distracted boyfriend meme gets AI-generated sequel", description: "Someone used AI to create a 'distracted girlfriend' version and the internet collectively agreed it was perfect.", source: "Reddit", timeAgo: "1h ago", category: "meme", imageUrl: "https://picsum.photos/seed/distracted/600/400", link: "#", upvotes: 78600, region: "USA" },
+  { id: 'm2', title: "Indian IT guy 'fixing the internet' becomes global meme", description: "A photo of a man casually fixing cables during a flood becomes the symbol for 'keeping things running no matter what'.", source: "X", timeAgo: "3h ago", category: "meme", imageUrl: "https://picsum.photos/seed/itguy/600/400", link: "#", upvotes: 65400, region: "India" },
+  { id: 'm3', title: "Brazilian capybara in a hot tub: peak relaxation meme", description: "The capybara sitting in an onsen becomes the 'I'm fine, everything is fine' meme of the year.", source: "Reddit", timeAgo: "5h ago", category: "meme", imageUrl: "https://picsum.photos/seed/capybara/600/400", link: "#", upvotes: 91200, region: "Brazil" },
+  { id: 'm4', title: "'Is this a pigeon?' meme resurfaces for AI era", description: "The classic anime meme gets updated: 'Is this artificial intelligence?' while pointing at a calculator.", source: "X", timeAgo: "2h ago", category: "meme", imageUrl: "https://picsum.photos/seed/pigeon/600/400", link: "#", upvotes: 54800, region: "Japan" },
+  { id: 'm5', title: "Cat vs cucumber but it's world leaders at G20", description: "Photoshopped images of world leaders being startled by cucumbers dominate meme pages worldwide.", source: "Instagram", timeAgo: "4h ago", category: "meme", imageUrl: "https://picsum.photos/seed/cucumber/600/400", link: "#", upvotes: 72100, region: "Worldwide" },
+  { id: 'm6', title: "Nigerian 'Nobody: Absolutely nobody:' meme goes platinum", description: "A new variation featuring Lagos traffic has been shared over 5 million times across all platforms.", source: "X", timeAgo: "6h ago", category: "meme", imageUrl: "https://picsum.photos/seed/lagos/600/400", link: "#", upvotes: 48300, region: "Nigeria" },
+  { id: 'm7', title: "French bulldog judges everything you do", description: "A series of photos of a disapproving French bulldog becomes the new reaction meme for passive-aggressive texts.", source: "Reddit", timeAgo: "7h ago", category: "meme", imageUrl: "https://picsum.photos/seed/frenchdog/600/400", link: "#", upvotes: 59700, region: "France" },
+  { id: 'm8', title: "'Corporate wants you to find the difference' for AI chatbots", description: "The classic Office meme now features 20 identical AI chatbot logos. 'They're the same picture.'", source: "Reddit", timeAgo: "8h ago", category: "meme", imageUrl: "https://picsum.photos/seed/corporate/600/400", link: "#", upvotes: 41200, region: "USA" },
+  { id: 'm9', title: "Australian spider meme: 'Australia is not that dangerous'", description: "Photos of massive huntsman spiders next to household items continue to terrify and amuse the internet.", source: "Reddit", timeAgo: "10h ago", category: "meme", imageUrl: "https://picsum.photos/seed/spider/600/400", link: "#", upvotes: 36800, region: "Australia" },
+  { id: 'm10', title: "K-drama pause face compilation goes viral", description: "Screenshots of perfectly-timed K-drama pause faces become a whole new genre of meme content.", source: "X", timeAgo: "9h ago", category: "meme", imageUrl: "https://picsum.photos/seed/kdrama/600/400", link: "#", upvotes: 52400, region: "South Korea" }
+];
+
+// ===========================
+// STATE MANAGEMENT
+// ===========================
+
+let currentTab = 'home';
+let filters = { region: 'all', time: '24h', sort: 'hot' };
+let searchQuery = '';
+let displayCount = {}; // per-tab display counts
+const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_LOAD = 3;
+
+// Load community data from localStorage
+function getCommunityData() {
+  try {
+    return JSON.parse(localStorage.getItem('virasphere_community') || '[]');
+  } catch { return []; }
+}
+function saveCommunityData(data) {
+  localStorage.setItem('virasphere_community', JSON.stringify(data));
+}
+
+// Load upvotes from localStorage
+function getUpvotes() {
+  try { return JSON.parse(localStorage.getItem('virasphere_upvotes') || '{}'); } catch { return {}; }
+}
+function saveUpvotes(data) { localStorage.setItem('virasphere_upvotes', JSON.stringify(data)); }
+
+// Extra viral titles for the "Refresh" feature
+const viralTitlePool = [
+  "Cat learns to open fridge, becomes TikTok sensation",
+  "Man proposes using drone light show, drone crashes into cake",
+  "Grandma beats Dark Souls blindfolded, gaming world stunned",
+  "Someone 3D-printed an entire house in 24 hours",
+  "Pigeon wearing tiny backpack spotted in NYC subway",
+  "AI writes a love song that makes people cry",
+  "Kid explains quantum physics better than professors",
+  "Dog mayor re-elected for third term in small town",
+  "World's longest pizza stretches across entire football field",
+  "Parrot learns to order from Alexa, owner's credit card weeps",
+  "Flash mob of grandmas breakdancing in Tokyo station",
+  "Guy proposes on jumbotron, she says 'Let me think about it'",
+  "Stray cat adopted by fire station becomes official mascot",
+  "Baby's first word is 'bruh', video goes mega viral",
+  "Teacher's TikTok math trick saves students worldwide"
+];
+const regions = ['USA', 'India', 'Brazil', 'Japan', 'Nigeria', 'UK', 'South Korea', 'France', 'Australia', 'Germany'];
+const sources = ['X', 'TikTok', 'Reddit', 'Instagram', 'YouTube'];
+const categories = ['news', 'social', 'meme', 'video'];
+
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatUpvotes(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  const colors = { success: 'from-green-500 to-emerald-600', info: 'from-blue-500 to-cyan-600', error: 'from-red-500 to-pink-600' };
+  toast.className = `toast px-4 py-3 rounded-xl bg-gradient-to-r ${colors[type] || colors.success} text-white text-sm font-medium shadow-xl`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ===========================
+// THEME TOGGLE
+// ===========================
+
+function toggleTheme() {
+  const html = document.documentElement;
+  html.classList.toggle('dark');
+  const isDark = html.classList.contains('dark');
+  document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+  document.body.classList.toggle('bg-surface-dark', isDark);
+  document.body.classList.toggle('bg-surface-light', !isDark);
+  document.body.classList.toggle('text-gray-100', isDark);
+  document.body.classList.toggle('text-gray-800', !isDark);
+  localStorage.setItem('virasphere_theme', isDark ? 'dark' : 'light');
+}
+
+// Load saved theme
+(function() {
+  const saved = localStorage.getItem('virasphere_theme');
+  if (saved === 'light') {
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('bg-surface-dark', 'text-gray-100');
+    document.body.classList.add('bg-surface-light', 'text-gray-800');
+    setTimeout(() => { document.getElementById('theme-icon').textContent = '☀️'; }, 0);
+  }
+})();
+
+// ===========================
+// MOBILE MENU & SEARCH
+// ===========================
+
+function toggleMobileMenu() {
+  document.getElementById('mobile-menu').classList.toggle('hidden');
+}
+function closeMobileMenu() {
+  document.getElementById('mobile-menu').classList.add('hidden');
+}
+function toggleMobileSearch() {
+  document.getElementById('mobile-search').classList.toggle('hidden');
+}
+
+// ===========================
+// FILTER LOGIC
+// ===========================
+
+function setFilter(type, value) {
+  filters[type] = value;
+
+  // Update desktop pills
+  if (type === 'region') {
+    document.querySelectorAll('#region-filters .filter-pill').forEach(b => {
+      b.classList.toggle('pill-active', b.dataset.region === value);
+    });
+  } else if (type === 'time') {
+    document.querySelectorAll('#time-filters .filter-pill').forEach(b => {
+      b.classList.toggle('pill-active', b.dataset.time === value);
+    });
+  } else if (type === 'sort') {
+    document.querySelectorAll('#sort-filters .filter-pill').forEach(b => {
+      b.classList.toggle('pill-active', b.dataset.sort === value);
+    });
+  }
+
+  // Update mobile pills
+  document.querySelectorAll('.filter-pill-mobile').forEach(b => {
+    if (b.dataset[type] !== undefined) {
+      b.classList.toggle('pill-active', b.dataset[type] === value);
+    }
+  });
+
+  // Reset display count and re-render
+  displayCount[currentTab] = ITEMS_PER_PAGE;
+  renderCurrentTab();
+}
+
+function getFilteredItems(items) {
+  let result = [...items];
+  const upvotes = getUpvotes();
+
+  // Apply upvote overrides
+  result = result.map(item => ({
+    ...item,
+    upvotes: upvotes[item.id] !== undefined ? upvotes[item.id] : item.upvotes
+  }));
+
+  // Region filter
+  if (filters.region !== 'all') {
+    result = result.filter(item => {
+      const r = regionMap[item.region] || 'all';
+      return r === filters.region || item.region === 'Worldwide';
+    });
+  }
+
+  // Search filter
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    result = result.filter(item =>
+      item.title.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      item.source.toLowerCase().includes(q) ||
+      item.region.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  if (filters.sort === 'hot') {
+    result.sort((a, b) => b.upvotes - a.upvotes);
+  } else if (filters.sort === 'latest') {
+    // Already in chronological order from data
+  } else if (filters.sort === 'upvoted') {
+    result.sort((a, b) => b.upvotes - a.upvotes);
+  }
+
+  return result;
+}
+
+// ===========================
+// SEARCH
+// ===========================
+
+function handleSearch(value) {
+  searchQuery = value.trim();
+  // Sync both inputs
+  document.querySelectorAll('input[placeholder="Search viral moments..."]').forEach(inp => inp.value = value);
+  displayCount[currentTab] = ITEMS_PER_PAGE;
+  renderCurrentTab();
+}
+
+// ===========================
+// TAB SWITCHING
+// ===========================
+
+function switchTab(tab) {
+  currentTab = tab;
+  if (!displayCount[tab]) displayCount[tab] = ITEMS_PER_PAGE;
+
+  // Update desktop tabs
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('tab-active', b.dataset.tab === tab);
+    b.classList.toggle('text-gray-400', b.dataset.tab !== tab);
+  });
+
+  // Update mobile bottom tabs
+  document.querySelectorAll('.mobile-tab').forEach(b => {
+    b.classList.toggle('text-neon-purple', b.dataset.tab === tab);
+    b.classList.toggle('text-gray-400', b.dataset.tab !== tab);
+  });
+
+  renderCurrentTab();
+}
+
+// ===========================
+// RENDERING
+// ===========================
+
+function getDataForTab(tab) {
+  switch(tab) {
+    case 'news': return newsData;
+    case 'social': return socialData;
+    case 'videos': return videoData;
+    case 'memes': return memeData;
+    case 'community': return getCommunityData();
+    case 'home': return [...newsData, ...socialData, ...videoData, ...memeData].sort((a,b) => b.upvotes - a.upvotes);
+    default: return [];
+  }
+}
+
+function renderCurrentTab() {
+  const container = document.getElementById('tab-content');
+  container.innerHTML = '';
+  container.className = 'animate-fade-in';
+
+  if (currentTab === 'home') {
+    renderHome(container);
+  } else if (currentTab === 'community') {
+    renderCommunity(container);
+  } else {
+    renderGenericTab(container);
+  }
+}
+
+function renderHome(container) {
+  // Hero banner
+  const hero = document.createElement('div');
+  hero.innerHTML = `
+    <div class="hero-gradient rounded-2xl p-6 md:p-10 mb-8 relative overflow-hidden">
+      <div class="absolute inset-0 shimmer rounded-2xl"></div>
+      <div class="relative z-10">
+        <h1 class="text-3xl md:text-5xl font-black mb-3 bg-gradient-to-r from-neon-purple via-neon-pink to-neon-cyan bg-clip-text text-transparent leading-tight">What's Breaking<br>the Internet? 🔥</h1>
+        <p class="text-gray-300 dark:text-gray-300 text-gray-600 md:text-lg max-w-xl mb-4">The world's most viral moments, all in one place. Curated from every corner of the globe.</p>
+        <div class="flex flex-wrap gap-3">
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-neon-purple/20 text-neon-purple border border-neon-purple/30">🔥 42.8M trending</span>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30">🌍 194 countries</span>
+          <span class="px-3 py-1 rounded-full text-xs font-medium bg-neon-pink/20 text-neon-pink border border-neon-pink/30">⚡ Updated live</span>
+        </div>
+      </div>
+    </div>
+  `;
+  container.appendChild(hero);
+
+  // Top viral cards
+  const allItems = getFilteredItems([...newsData, ...socialData, ...videoData, ...memeData]);
+  const count = displayCount['home'] || ITEMS_PER_PAGE;
+  const items = allItems.slice(0, count);
+  const grid = createGrid(items);
+  container.appendChild(grid);
+
+  // Show/hide load more
+  document.getElementById('load-more-container').style.display = count < allItems.length ? 'block' : 'none';
+}
+
+function renderCommunity(container) {
+  const communityItems = getCommunityData();
+  const filtered = getFilteredItems(communityItems);
+  const count = displayCount['community'] || ITEMS_PER_PAGE;
+  const items = filtered.slice(0, count);
+
+  if (communityItems.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-16">
+        <div class="text-6xl mb-4">🌐</div>
+        <h2 class="text-2xl font-bold mb-2 bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text text-transparent">Community Hub</h2>
+        <p class="text-gray-400 mb-6 max-w-md mx-auto">Be the first to contribute! Share viral moments from your corner of the world.</p>
+        <button onclick="openContributeModal()" class="neon-btn px-6 py-3 rounded-xl text-white font-bold">+ Share Something Viral</button>
+      </div>
+    `;
+  } else {
+    const header = document.createElement('div');
+    header.innerHTML = `
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-bold">🌐 Community Contributions</h2>
+          <p class="text-sm text-gray-400">${communityItems.length} submissions from around the world</p>
+        </div>
+        <button onclick="openContributeModal()" class="neon-btn px-4 py-2 rounded-xl text-white font-semibold text-sm">+ Add Yours</button>
+      </div>
+    `;
+    container.appendChild(header);
+    const grid = createGrid(items);
+    container.appendChild(grid);
+    document.getElementById('load-more-container').style.display = count < filtered.length ? 'block' : 'none';
+  }
+}
+
+function renderGenericTab(container) {
+  const data = getDataForTab(currentTab);
+  const filtered = getFilteredItems(data);
+  const count = displayCount[currentTab] || ITEMS_PER_PAGE;
+  const items = filtered.slice(0, count);
+
+  const tabNames = { news: '📰 Viral News & Events', social: '💬 Social Buzz', videos: '🎬 Viral Videos', memes: '😂 Meme Central' };
+  const header = document.createElement('div');
+  header.innerHTML = `<h2 class="text-xl font-bold mb-6">${tabNames[currentTab] || ''}</h2>`;
+  container.appendChild(header);
+
+  if (currentTab === 'memes') {
+    // Meme grid — more columns, image-heavy
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
+    items.forEach(item => grid.appendChild(createMemeCard(item)));
+    container.appendChild(grid);
+  } else {
+    const grid = createGrid(items);
+    container.appendChild(grid);
+  }
+
+  document.getElementById('load-more-container').style.display = count < filtered.length ? 'block' : 'none';
+}
+
+function createGrid(items) {
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5';
+  items.forEach(item => {
+    grid.appendChild(createCard(item));
+  });
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400"><div class="text-4xl mb-2">🔍</div>No results found. Try a different search or filter.</div>`;
+  }
+  return grid;
+}
+
+// ===========================
+// CARD COMPONENTS
+// ===========================
+
+function createCard(item) {
+  const upvotes = getUpvotes();
+  const currentUpvotes = upvotes[item.id] !== undefined ? upvotes[item.id] : item.upvotes;
+  const isVideo = item.videoId;
+  const categoryColors = { news: 'bg-blue-500/20 text-blue-400', social: 'bg-green-500/20 text-green-400', video: 'bg-red-500/20 text-red-400', meme: 'bg-yellow-500/20 text-yellow-400', event: 'bg-purple-500/20 text-purple-400', other: 'bg-gray-500/20 text-gray-400' };
+  const catClass = categoryColors[item.category] || categoryColors.other;
+
+  const card = document.createElement('div');
+  card.className = 'glass-card rounded-2xl overflow-hidden animate-slide-up';
+  card.innerHTML = `
+    <div class="relative cursor-pointer group" onclick="${isVideo ? `openVideoModal('${item.videoId}')` : ''}">
+      <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" class="w-full h-48 object-cover" loading="lazy" onerror="this.src='https://picsum.photos/seed/${item.id}/600/400'">
+      ${isVideo ? `<div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+        <div class="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+          <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>` : ''}
+      <div class="absolute top-3 left-3 flex gap-2">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${catClass}">${item.category.toUpperCase()}</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-gray-300">📍 ${escapeHtml(item.region)}</span>
+      </div>
+    </div>
+    <div class="p-4">
+      <h3 class="font-bold text-sm md:text-base mb-1.5 line-clamp-2 leading-snug">${escapeHtml(item.title)}</h3>
+      <p class="text-xs text-gray-400 mb-3 line-clamp-2">${escapeHtml(item.description)}</p>
+      <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+        <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 bg-neon-green rounded-full inline-block"></span>${escapeHtml(item.source)}</span>
+        <span>${escapeHtml(item.timeAgo)}</span>
+      </div>
+      ${item.authorName ? `<div class="text-xs text-gray-500 mb-3">Contributed by <span class="text-neon-cyan font-medium">${escapeHtml(item.authorName)}</span> from ${escapeHtml(item.country || 'Unknown')}</div>` : ''}
+      <div class="flex items-center justify-between pt-3 border-t border-white/5">
+        <button onclick="handleUpvote('${item.id}', this)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-neon-purple/10 transition-colors group/upvote">
+          <svg class="w-4 h-4 text-neon-purple group-hover/upvote:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+          <span class="font-semibold text-sm upvote-count">${formatUpvotes(currentUpvotes)}</span>
+        </button>
+        <div class="flex items-center gap-1">
+          <button onclick="shareTwitter('${escapeHtml(item.title)}')" title="Share on X" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </button>
+          <button onclick="shareWhatsApp('${escapeHtml(item.title)}')" title="Share on WhatsApp" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-green-400">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          </button>
+          <button onclick="copyLink('${escapeHtml(item.title)}')" title="Copy link" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-neon-cyan">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function createMemeCard(item) {
+  const upvotes = getUpvotes();
+  const currentUpvotes = upvotes[item.id] !== undefined ? upvotes[item.id] : item.upvotes;
+
+  const card = document.createElement('div');
+  card.className = 'glass-card rounded-2xl overflow-hidden animate-slide-up';
+  card.innerHTML = `
+    <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" class="w-full h-40 md:h-52 object-cover" loading="lazy" onerror="this.src='https://picsum.photos/seed/${item.id}/600/400'">
+    <div class="p-3">
+      <h3 class="font-bold text-xs md:text-sm mb-1 line-clamp-2">${escapeHtml(item.title)}</h3>
+      <div class="flex items-center justify-between mt-2">
+        <button onclick="handleUpvote('${item.id}', this)" class="flex items-center gap-1 text-neon-purple text-xs font-semibold">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+          <span class="upvote-count">${formatUpvotes(currentUpvotes)}</span>
+        </button>
+        <div class="flex gap-1">
+          <button onclick="shareTwitter('${escapeHtml(item.title)}')" class="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></button>
+          <button onclick="copyLink('${escapeHtml(item.title)}')" class="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-neon-cyan"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></button>
+        </div>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+// ===========================
+// INTERACTIONS
+// ===========================
+
+function handleUpvote(itemId, btnElement) {
+  const upvotes = getUpvotes();
+
+  // Find original value from data
+  const allData = [...newsData, ...socialData, ...videoData, ...memeData, ...getCommunityData()];
+  const item = allData.find(i => i.id === itemId);
+  const current = upvotes[itemId] !== undefined ? upvotes[itemId] : (item ? item.upvotes : 0);
+  upvotes[itemId] = current + 1;
+  saveUpvotes(upvotes);
+
+  // Update UI
+  const countEl = btnElement.closest('.glass-card').querySelector('.upvote-count');
+  if (countEl) {
+    countEl.textContent = formatUpvotes(upvotes[itemId]);
+    countEl.classList.add('upvote-pop');
+    setTimeout(() => countEl.classList.remove('upvote-pop'), 300);
+  }
+}
+
+function shareTwitter(title) {
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title + ' — via ViraSphere 🌍')}`;
+  window.open(url, '_blank', 'width=550,height=420');
+}
+
+function shareWhatsApp(title) {
+  const url = `https://wa.me/?text=${encodeURIComponent(title + ' — via ViraSphere 🌍')}`;
+  window.open(url, '_blank');
+}
+
+function copyLink(title) {
+  navigator.clipboard.writeText(title + ' — via ViraSphere 🌍').then(() => {
+    showToast('Link copied to clipboard! 📋', 'info');
+  }).catch(() => {
+    showToast('Could not copy link', 'error');
+  });
+}
+
+// ===========================
+// VIDEO MODAL
+// ===========================
+
+function openVideoModal(videoId) {
+  document.getElementById('video-iframe').src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  document.getElementById('video-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVideoModal() {
+  document.getElementById('video-iframe').src = '';
+  document.getElementById('video-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// ===========================
+// CONTRIBUTE MODAL
+// ===========================
+
+function openContributeModal() {
+  document.getElementById('contribute-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeContributeModal() {
+  document.getElementById('contribute-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function handleContribute(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+
+  const newItem = {
+    id: 'c_' + Date.now(),
+    title: data.get('title'),
+    description: data.get('description'),
+    source: 'Community',
+    timeAgo: 'Just now',
+    category: data.get('category'),
+    imageUrl: data.get('imageUrl') || `https://picsum.photos/seed/${Date.now()}/600/400`,
+    link: data.get('link') || '#',
+    upvotes: 0,
+    region: data.get('country'),
+    authorName: data.get('authorName'),
+    country: data.get('country')
+  };
+
+  const community = getCommunityData();
+  community.unshift(newItem);
+  saveCommunityData(community);
+
+  form.reset();
+  closeContributeModal();
+  showToast('🎉 Your contribution is live! Check the Community tab.', 'success');
+
+  // Switch to community tab
+  switchTab('community');
+}
+
+// Close modals on overlay click
+document.getElementById('contribute-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeContributeModal();
+});
+document.getElementById('video-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeVideoModal();
+});
+
+// Close modals on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeContributeModal();
+    closeVideoModal();
+  }
+});
+
+// ===========================
+// LOAD MORE
+// ===========================
+
+function loadMore() {
+  displayCount[currentTab] = (displayCount[currentTab] || ITEMS_PER_PAGE) + ITEMS_PER_LOAD;
+  renderCurrentTab();
+  showToast('Loaded more content ⬇️', 'info');
+}
+
+// ===========================
+// REFRESH VIRAL DATA
+// ===========================
+
+function refreshViralData() {
+  // Add 3 random new items to various data arrays
+  for (let i = 0; i < 3; i++) {
+    const title = viralTitlePool[Math.floor(Math.random() * viralTitlePool.length)];
+    const region = regions[Math.floor(Math.random() * regions.length)];
+    const source = sources[Math.floor(Math.random() * sources.length)];
+    const cat = categories[Math.floor(Math.random() * categories.length)];
+    const newItem = {
+      id: 'r_' + Date.now() + '_' + i,
+      title: title,
+      description: "This is trending right now! Everyone is talking about it. Don't miss out on the latest viral sensation.",
+      source: source,
+      timeAgo: 'Just now',
+      category: cat,
+      imageUrl: `https://picsum.photos/seed/${Date.now() + i}/600/400`,
+      link: '#',
+      upvotes: Math.floor(Math.random() * 50000) + 1000,
+      region: region
+    };
+    if (cat === 'news') newsData.unshift(newItem);
+    else if (cat === 'social') socialData.unshift(newItem);
+    else if (cat === 'meme') memeData.unshift(newItem);
+    else if (cat === 'video') { newItem.videoId = 'dQw4w9WgXcQ'; videoData.unshift(newItem); }
+  }
+
+  // Shuffle existing data slightly
+  [newsData, socialData, videoData, memeData].forEach(arr => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  });
+
+  renderCurrentTab();
+  showToast('🔄 Fresh viral content loaded!', 'success');
+}
+
+// ===========================
+// INITIAL RENDER
+// ===========================
+
+displayCount['home'] = ITEMS_PER_PAGE;
+renderCurrentTab();
+</script>
+</body>
+</html>
