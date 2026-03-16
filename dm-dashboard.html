@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Office - Daily Management Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd',
+                            400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+                            800: '#1e40af', 900: '#1e3a5a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .modal-backdrop { backdrop-filter: blur(4px); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        @media print { .no-print { display: none !important; } }
+        /* Desktop table scrollbar */
+        .table-wrap::-webkit-scrollbar { height: 6px; }
+        .table-wrap::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    SUPABASE / FIREBASE MIGRATION GUIDE                      ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  This dashboard uses localStorage. To enable real-time multi-user sync:     ║
+║                                                                              ║
+║  ── OPTION A: SUPABASE (Recommended — free tier, no Google needed) ───────  ║
+║                                                                              ║
+║  1. Create project at https://supabase.com                                  ║
+║  2. Run this SQL in SQL Editor:                                              ║
+║     CREATE TABLE initiatives (                                               ║
+║       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,                        ║
+║       theme TEXT NOT NULL, area TEXT NOT NULL,                               ║
+║       initiative TEXT NOT NULL, business_owner TEXT,                         ║
+║       owner TEXT NOT NULL, target_date DATE NOT NULL,                        ║
+║       revision INT DEFAULT 0, status TEXT DEFAULT 'Not Started',            ║
+║       remarks TEXT, created_at TIMESTAMPTZ DEFAULT now(),                    ║
+║       updated_at TIMESTAMPTZ DEFAULT now()                                  ║
+║     );                                                                        ║
+║  3. Enable Realtime (Database → Replication → enable initiatives table)     ║
+║  4. Add Supabase JS in <head>:                                               ║
+║     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">    ║
+║  5. Replace DataStore methods:                                               ║
+║     const sb = supabase.createClient(URL, ANON_KEY);                        ║
+║     getAll → sb.from('initiatives').select('*')                             ║
+║     save   → sb.from('initiatives').upsert(item)                            ║
+║     delete → sb.from('initiatives').delete().eq('id', id)                   ║
+║  6. Real-time subscribe:                                                     ║
+║     sb.channel('initiatives').on('postgres_changes',                        ║
+║       {event:'*', schema:'public', table:'initiatives'},                    ║
+║       () => renderUI()).subscribe();                                        ║
+║                                                                              ║
+║  ── OPTION B: FIREBASE Realtime Database (v9 modular) ────────────────────  ║
+║  See Firebase docs for initializeApp + getDatabase + onValue setup.         ║
+║  Replace DataStore.getAll/save/delete with ref/set/remove calls.            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+
+<!-- ================================================================== -->
+<!-- HEADER                                                              -->
+<!-- ================================================================== -->
+<header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40 no-print">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center justify-between h-14">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold leading-tight">Data Office</h1>
+                    <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-tight">Daily Management</p>
+                </div>
+            </div>
+            <!-- Tabs -->
+            <nav class="flex items-center gap-1">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Dashboard</button>
+                <button onclick="switchTab('entry')" id="tab-entry" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Entry</button>
+            </nav>
+            <!-- Actions -->
+            <div class="flex items-center gap-1.5">
+                <button onclick="openModal()" title="Add New" class="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span class="hidden sm:inline">Add</span>
+                </button>
+                <button onclick="toggleDarkMode()" title="Toggle theme" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <svg id="icon-sun" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg id="icon-moon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- ================================================================== -->
+<!-- MAIN CONTENT                                                        -->
+<!-- ================================================================== -->
+<main class="max-w-7xl mx-auto px-4 py-4">
+
+    <!-- DASHBOARD VIEW -->
+    <div id="view-dashboard">
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-4 gap-3 mb-4">
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+                <p class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</p>
+                <p id="stat-total" class="text-xl sm:text-2xl font-bold mt-0.5">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+                <p class="text-[10px] font-semibold text-red-500 uppercase tracking-wider">Overdue</p>
+                <p id="stat-overdue" class="text-xl sm:text-2xl font-bold mt-0.5 text-red-600">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+                <p class="text-[10px] font-semibold text-amber-500 uppercase tracking-wider">In Progress</p>
+                <p id="stat-wip" class="text-xl sm:text-2xl font-bold mt-0.5 text-amber-600">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+                <p class="text-[10px] font-semibold text-emerald-500 uppercase tracking-wider">Done</p>
+                <p id="stat-completed" class="text-xl sm:text-2xl font-bold mt-0.5 text-emerald-600">0</p>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="flex items-center gap-2 mb-3 no-print">
+            <div class="relative flex-1">
+                <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" id="search-box" placeholder="Search..." oninput="renderTable()"
+                    class="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none">
+            </div>
+            <select id="status-filter" onchange="renderTable()"
+                class="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                <option value="">All</option>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="On Track">On Track</option>
+                <option value="Delayed">Delayed</option>
+                <option value="Completed">Completed</option>
+                <option value="Closed">Closed</option>
+            </select>
+            <button onclick="exportCSV()" title="Export CSV" class="p-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </button>
+            <button onclick="resetToSample()" title="Reset Data" class="p-2 rounded-lg border border-red-300 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+        </div>
+
+        <!-- MOBILE: Card Layout (< lg) -->
+        <div id="cards-container" class="lg:hidden space-y-3"></div>
+
+        <!-- DESKTOP: Table Layout (>= lg) -->
+        <div class="hidden lg:block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <div class="overflow-x-auto table-wrap">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-800">
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Theme</th>
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Initiative</th>
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Owner</th>
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Target</th>
+                            <th class="text-center px-2 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Rev</th>
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                            <th class="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Remarks</th>
+                            <th class="text-center px-2 py-2.5 font-semibold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 no-print w-20">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- No results -->
+        <div id="no-results" class="hidden py-12 text-center text-gray-500 dark:text-gray-400">
+            <p class="font-medium">No initiatives found</p>
+            <p class="text-sm mt-1">Try adjusting your search or filters</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-3 text-[11px] text-gray-400 dark:text-gray-500">
+            <p>Last updated: <span id="last-updated">-</span></p>
+            <p class="mt-0.5 sm:mt-0">Open to all — replace with Supabase Auth for team access control</p>
+        </div>
+    </div>
+
+    <!-- ENTRY SCREEN VIEW -->
+    <div id="view-entry" class="hidden">
+        <div class="max-w-lg mx-auto">
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 sm:p-6">
+                <h2 class="text-lg font-bold mb-0.5">New Initiative</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Fields marked * are required.</p>
+                <form id="entry-form" onsubmit="return saveEntryForm(event)" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Theme *</label>
+                            <input type="text" id="ef-theme" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Area *</label>
+                            <input type="text" id="ef-area" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Initiative *</label>
+                        <input type="text" id="ef-initiative" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Business Owner</label>
+                            <input type="text" id="ef-businessOwner" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Owner *</label>
+                            <input type="text" id="ef-owner" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Target Date *</label>
+                            <input type="date" id="ef-targetDate" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Status *</label>
+                            <select id="ef-status" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                                <option value="Not Started">Not Started</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="On Track">On Track</option>
+                                <option value="Delayed">Delayed</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Closed">Closed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Remarks</label>
+                        <textarea id="ef-remarks" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-vertical"></textarea>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 pt-1">
+                        <button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition-colors">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ================================================================== -->
+<!-- EDIT MODAL                                                          -->
+<!-- ================================================================== -->
+<div id="modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop bg-black/50">
+    <div class="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto animate-fade-in">
+        <div class="flex items-center justify-between px-5 pt-5 pb-3">
+            <h2 id="modal-title" class="text-base font-bold">Add New Initiative</h2>
+            <button onclick="closeModal()" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="modal-form" onsubmit="return saveModal(event)" class="px-5 pb-5 space-y-4">
+            <input type="hidden" id="m-id"><input type="hidden" id="m-revision"><input type="hidden" id="m-origDate">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Theme *</label>
+                    <input type="text" id="m-theme" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Area *</label>
+                    <input type="text" id="m-area" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium mb-1">Initiative *</label>
+                <input type="text" id="m-initiative" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Business Owner</label>
+                    <input type="text" id="m-businessOwner" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Owner *</label>
+                    <input type="text" id="m-owner" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Target Date *</label>
+                    <input type="date" id="m-targetDate" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Status *</label>
+                    <select id="m-status" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                        <option value="Not Started">Not Started</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="On Track">On Track</option>
+                        <option value="Delayed">Delayed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium mb-1">Remarks</label>
+                <textarea id="m-remarks" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-vertical"></textarea>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition-colors">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION -->
+<div id="confirm-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/50">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 w-full max-w-xs animate-fade-in p-5 text-center">
+        <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h3 class="text-base font-bold mb-1">Delete?</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">This cannot be undone.</p>
+        <div class="flex items-center justify-center gap-2">
+            <button onclick="closeConfirm()" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+            <button onclick="confirmDelete()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- JAVASCRIPT                                                          -->
+<!-- ================================================================== -->
+<script>
+// ====================================================================
+// SUPABASE CONNECTION
+// ====================================================================
+const SUPABASE_URL = 'https://ojjehawrdtahwaleoicm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qamVoYXdyZHRhaHdhbGVvaWNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NzM0NjcsImV4cCI6MjA4OTI0OTQ2N30.TsDwOcXuCThFXw77lCrCpfyslUi7wWKSbPW3stQ2UgI';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// In-memory cache of all initiatives (synced with Supabase)
+let allData = [];
+let lastUpdated = null;
+
+const SAMPLE_DATA = [
+    { id:"i01", theme:"One Tatasteel", area:"HR", initiative:"One HR KPI - HR KPI", business_owner:"CPO", owner:"Gangesh", target_date:"2026-01-26", revision:0, status:"Completed", remarks:"20 entity integration Completed" },
+    { id:"i02", theme:"TDA Enablement", area:"All", initiative:"Division wise TDA enablement", business_owner:"All", owner:"All", target_date:"2026-04-26", revision:0, status:"In Progress", remarks:"Refer detailed sheet." },
+    { id:"i03", theme:"One Tatasteel", area:"HR", initiative:"Group Companies HR KPI Integration - Financial KPIs", business_owner:"CPO", owner:"Gangesh", target_date:"2026-03-26", revision:0, status:"In Progress", remarks:"CFIN integration in progress. UAT in progress for CFIN." },
+    { id:"i04", theme:"ESG Automation", area:"SHS", initiative:"Enablon Automation", business_owner:"Chief Sustainability", owner:"Manpreet", target_date:"2026-06-30", revision:0, status:"In Progress", remarks:"60% Automation Completed (100% based on provided KDS)" },
+    { id:"i05", theme:"ESG Automation", area:"SHS", initiative:"UMC Dashboard For BRSR", business_owner:"Chief Environment", owner:"Gangesh", target_date:"2026-01-26", revision:0, status:"Completed", remarks:"" },
+    { id:"i06", theme:"ESG Automation", area:"SHS", initiative:"SEQ (Safety) Pack Automation", business_owner:"Chief Safety", owner:"Ashish", target_date:"2026-09-25", revision:0, status:"Completed", remarks:"" },
+    { id:"i07", theme:"BPM Automation", area:"F&A", initiative:"Cost Automations (SRM, GAGW, Wage)", business_owner:"Pradeep Bal, Chief BF&A", owner:"Ashish", target_date:"2026-06-25", revision:0, status:"Completed", remarks:"" },
+    { id:"i08", theme:"One Tatasteel", area:"HR", initiative:"Contract Worker Attendance & Wage Reporting", business_owner:"Zubin Palia, CHRO", owner:"Ashish", target_date:"2026-04-25", revision:0, status:"Completed", remarks:"" },
+    { id:"i09", theme:"Data Office", area:"F&A", initiative:"Inventory (Steel, Stores & Spares, RM)", business_owner:"Pradeep Bal, Chief BF&A", owner:"Ashish", target_date:"2026-08-25", revision:0, status:"Completed", remarks:"" },
+    { id:"i10", theme:"Safety", area:"HR", initiative:"Contract Worker Attendance Compliance (Weekly Off)", business_owner:"Chief Safety", owner:"Ashish", target_date:"2026-04-25", revision:0, status:"In Progress", remarks:"TSJ, TSK, TSM done. Tubes ongoing. Blocking from 1st April." },
+    { id:"i11", theme:"BPM Automation", area:"F&A", initiative:"Despatch Cost Automation", business_owner:"Pradeep Bal, Chief BF&A", owner:"Ashish", target_date:"2026-05-26", revision:0, status:"In Progress", remarks:"TSJ done. TSK, TSM WIP. TSG to be started" },
+    { id:"i12", theme:"PII", area:"CISO/DPO", initiative:"TSL Personal data catalogue", business_owner:"CISO", owner:"Dinesh Kumar", target_date:"2026-01-26", revision:0, status:"Completed", remarks:"Phase 3 in progress" },
+    { id:"i13", theme:"BPM Automation", area:"M&S", initiative:"BPM Automation - Volume & NR Reporting", business_owner:"Ritu Agarwal, Somesh Biswas", owner:"Dinesh Kumar", target_date:"2026-08-25", revision:0, status:"Completed", remarks:"Area Covered - FP&LP" },
+    { id:"i14", theme:"BPM Automation", area:"M&S", initiative:"BPM Automation - Profitability & Margin Reporting", business_owner:"Ritu Agarwal, Somesh Biswas", owner:"Dinesh Kumar", target_date:"2026-04-26", revision:0, status:"In Progress", remarks:"Unabsorbed cost validation in progress. TSK Margin report WIP" },
+    { id:"i15", theme:"SEQ Automation", area:"TQM", initiative:"SEQ (Quality) Pack Automation", business_owner:"Chief TQM", owner:"Dinesh Kumar", target_date:"2026-05-26", revision:0, status:"In Progress", remarks:"95% KPI automated. Task force for internal rejection KPIs formed." },
+    { id:"i16", theme:"AI", area:"AI", initiative:"Anomaly Detection using AI", business_owner:"CDO", owner:"Dinesh Kumar", target_date:"2026-03-26", revision:0, status:"Completed", remarks:"Development & deployment completed. Scaling for Quality use case." },
+    { id:"i17", theme:"AI", area:"AI", initiative:"KPI Verse", business_owner:"CDO", owner:"Dinesh Kumar", target_date:"2026-03-26", revision:0, status:"Completed", remarks:"Deployment completed. Usage to start." },
+    { id:"i18", theme:"Data Office", area:"All", initiative:"Data Quality Implementation", business_owner:"CDO", owner:"Dinesh Kumar, Ranjeeta Sharma", target_date:"2026-12-31", revision:0, status:"In Progress", remarks:"Areas: M&S, SCM, Tubes, HR, Procurement, CS, Ops TSJ, Logistics, E&P, Safety" },
+    { id:"i19", theme:"Data Office", area:"Data Office", initiative:"Semantic Layer exploration", business_owner:"CDO", owner:"Dinesh Kumar", target_date:"2026-04-26", revision:0, status:"In Progress", remarks:"Alation+Dataplex Exploration. Sessions with Alation & Google done." },
+    { id:"i20", theme:"Datom", area:"All Geography", initiative:"DATOM application", business_owner:"CIO", owner:"Dinesh Kumar", target_date:"2026-04-26", revision:0, status:"In Progress", remarks:"Refer sharepoint" },
+    { id:"i21", theme:"Sensorisation", area:"TSL", initiative:"Sensor to SAP", business_owner:"VP AEM", owner:"Abhimanyu", target_date:"2026-06-01", revision:0, status:"In Progress", remarks:"Focus on Iron making KPIs Automation" },
+    { id:"i22", theme:"Data Office", area:"IP&S, M&S, Ops", initiative:"ETO Management", business_owner:"VP M&S FP", owner:"Abhimanyu", target_date:"2026-03-26", revision:0, status:"In Progress", remarks:"ETO transfer to Tubes across locations in progress" },
+    { id:"i23", theme:"Data Office", area:"SS", initiative:"KPI Automation", business_owner:"Prasenjit Dutta", owner:"Abhimanyu", target_date:"2026-05-26", revision:0, status:"In Progress", remarks:"Done for TSJ. In Progress for Power System and Utilities" },
+    { id:"i24", theme:"AI", area:"F&A", initiative:"Vian AI", business_owner:"ED&CFO", owner:"Sumit", target_date:"2026-07-26", revision:0, status:"In Progress", remarks:"SoW being reviewed by TCS before kick-off" },
+    { id:"i25", theme:"Cost Management", area:"AEM", initiative:"Inventory Forecast Model", business_owner:"Ajit Kar, Chief Integration", owner:"Ashish", target_date:"2026-04-26", revision:0, status:"In Progress", remarks:"Dashboard ready. Budget being finalized for accurate Forecasting" },
+    { id:"i26", theme:"SEQ Automation", area:"SHS", initiative:"SEQ (Environment) Pack Automation", business_owner:"Chief Environment", owner:"Manpreet", target_date:"2026-05-26", revision:0, status:"In Progress", remarks:"92% KPI automated" }
+];
+
+// ====================================================================
+// DATA STORE — Supabase with local cache
+// ====================================================================
+// Maps DB snake_case columns to JS camelCase for rendering
+function dbToJs(row) {
+    return {
+        id: row.id, theme: row.theme, area: row.area, initiative: row.initiative,
+        businessOwner: row.business_owner || '', owner: row.owner,
+        targetDate: row.target_date, revision: row.revision || 0,
+        status: row.status, remarks: row.remarks || ''
+    };
+}
+function jsToDb(item) {
+    return {
+        id: item.id, theme: item.theme, area: item.area, initiative: item.initiative,
+        business_owner: item.businessOwner || '', owner: item.owner,
+        target_date: item.targetDate, revision: item.revision || 0,
+        status: item.status, remarks: item.remarks || '',
+        updated_at: new Date().toISOString()
+    };
+}
+
+let fetching = false;
+async function fetchAll() {
+    if (fetching) return;
+    fetching = true;
+    try {
+        const { data, error } = await sb.from('initiatives').select('*').order('created_at');
+        if (error) { console.error('Supabase fetch error:', error.message); return; }
+        allData = data.map(dbToJs);
+        lastUpdated = new Date();
+        renderUI();
+    } finally { fetching = false; }
+}
+
+async function saveItem(item) {
+    const { error } = await sb.from('initiatives').upsert(jsToDb(item));
+    if (error) { alert('Save failed: ' + error.message); return; }
+    await fetchAll();
+}
+
+async function deleteItemFromDb(id) {
+    const { error } = await sb.from('initiatives').delete().eq('id', id);
+    if (error) { alert('Delete failed: ' + error.message); return; }
+    await fetchAll();
+}
+
+async function resetToSample() {
+    if (!confirm('Reset all data to original sample? This deletes everything in the database.')) return;
+    // Delete all rows then re-seed
+    const { error } = await sb.from('initiatives').delete().neq('id', '___never___');
+    if (error) { alert('Reset failed: ' + error.message); return; }
+    const { error: seedErr } = await sb.from('initiatives').insert(SAMPLE_DATA);
+    if (seedErr) { alert('Seed failed: ' + seedErr.message); return; }
+    await fetchAll();
+}
+
+// Real-time subscription — auto-refresh when any team member makes a change
+sb.channel('initiatives-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'initiatives' }, () => {
+        fetchAll();
+    })
+    .subscribe();
+
+// ====================================================================
+// HELPERS
+// ====================================================================
+let deleteTargetId = null;
+
+function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+function isOverdue(d) {
+    if (d.status === 'Completed' || d.status === 'Closed') return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const t = new Date(d.targetDate); t.setHours(0,0,0,0);
+    return t < today;
+}
+
+function fmtDate(s) {
+    if (!s) return '-';
+    return new Date(s).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function statusBadge(status) {
+    const m = {
+        'Not Started': 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+        'In Progress': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+        'On Track': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        'Delayed': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+        'Completed': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+        'Closed': 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+    };
+    return `<span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${m[status] || m['Not Started']}">${esc(status)}</span>`;
+}
+
+function genId() { return 'i' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4); }
+
+function getFiltered() {
+    const q = (document.getElementById('search-box').value || '').toLowerCase();
+    const sf = document.getElementById('status-filter').value;
+    return allData.filter(d => {
+        const ms = !q || d.initiative.toLowerCase().includes(q) || d.owner.toLowerCase().includes(q) || d.theme.toLowerCase().includes(q) || d.area.toLowerCase().includes(q) || (d.businessOwner||'').toLowerCase().includes(q);
+        const mf = !sf || d.status === sf;
+        return ms && mf;
+    });
+}
+
+// ====================================================================
+// RENDER
+// ====================================================================
+function renderUI() { renderTable(); renderCards(); renderStats(); renderTimestamp(); }
+
+function renderTable() {
+    const filtered = getFiltered();
+    const tbody = document.getElementById('table-body');
+    const nr = document.getElementById('no-results');
+
+    // Also render cards
+    renderCards();
+
+    if (!filtered.length) { tbody.innerHTML = ''; nr.classList.remove('hidden'); return; }
+    nr.classList.add('hidden');
+
+    tbody.innerHTML = filtered.map(d => {
+        const od = isOverdue(d);
+        return `<tr class="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+            <td class="px-3 py-2.5">
+                <span class="inline-flex px-1.5 py-0.5 rounded text-[11px] font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">${esc(d.theme)}</span>
+                <div class="text-[10px] text-gray-400 mt-0.5">${esc(d.area)}</div>
+            </td>
+            <td class="px-3 py-2.5 text-sm font-medium max-w-[280px]">${esc(d.initiative)}</td>
+            <td class="px-3 py-2.5 whitespace-nowrap">
+                <div class="text-sm font-medium">${esc(d.owner)}</div>
+                <div class="text-[10px] text-gray-400 truncate max-w-[140px]">${esc(d.businessOwner || '')}</div>
+            </td>
+            <td class="px-3 py-2.5 whitespace-nowrap text-sm ${od ? 'text-red-600 font-semibold' : ''}">${fmtDate(d.targetDate)}</td>
+            <td class="px-2 py-2.5 text-center">
+                <span class="inline-flex items-center justify-center w-7 h-5 rounded text-[10px] font-bold ${d.revision > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}">R${d.revision}</span>
+            </td>
+            <td class="px-3 py-2.5">${statusBadge(d.status)}</td>
+            <td class="px-3 py-2.5 text-xs text-gray-500 dark:text-gray-400 max-w-[220px] truncate" title="${esc(d.remarks||'')}">${esc(d.remarks || '-')}</td>
+            <td class="px-2 py-2.5 text-center no-print">
+                <div class="flex items-center justify-center gap-0.5">
+                    <button onclick="editItem('${d.id}')" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-brand-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button onclick="deleteItem('${d.id}')" class="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// MOBILE CARDS — no horizontal scroll!
+function renderCards() {
+    const filtered = getFiltered();
+    const container = document.getElementById('cards-container');
+    if (!filtered.length) { container.innerHTML = ''; return; }
+
+    container.innerHTML = filtered.map(d => {
+        const od = isOverdue(d);
+        return `<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
+            <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-semibold leading-snug">${esc(d.initiative)}</h3>
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">${esc(d.theme)}</span>
+                        <span class="text-[10px] text-gray-400">${esc(d.area)}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="editItem('${d.id}')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-brand-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button onclick="deleteItem('${d.id}')" class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                <div><span class="text-gray-400">Owner:</span> <span class="font-medium">${esc(d.owner)}</span></div>
+                <div><span class="text-gray-400">Biz Owner:</span> <span class="text-gray-600 dark:text-gray-300">${esc(d.businessOwner || '-')}</span></div>
+                <div><span class="text-gray-400">Target:</span> <span class="${od ? 'text-red-600 font-semibold' : 'font-medium'}">${fmtDate(d.targetDate)}</span></div>
+                <div><span class="text-gray-400">Rev:</span> <span class="font-bold ${d.revision > 0 ? 'text-amber-600' : ''}">${'R'+d.revision}</span></div>
+            </div>
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                ${statusBadge(d.status)}
+                ${d.remarks ? `<p class="text-[11px] text-gray-400 truncate max-w-[60%] text-right" title="${esc(d.remarks)}">${esc(d.remarks)}</p>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderStats() {
+    const data = allData;
+    document.getElementById('stat-total').textContent = data.length;
+    document.getElementById('stat-overdue').textContent = data.filter(isOverdue).length;
+    document.getElementById('stat-wip').textContent = data.filter(d => ['In Progress','On Track','Not Started','Delayed'].includes(d.status)).length;
+    document.getElementById('stat-completed').textContent = data.filter(d => d.status === 'Completed' || d.status === 'Closed').length;
+}
+
+function renderTimestamp() {
+    document.getElementById('last-updated').textContent = lastUpdated ? lastUpdated.toLocaleString() : 'Loading...';
+}
+
+// ====================================================================
+// MODALS
+// ====================================================================
+function openModal(id) {
+    const modal = document.getElementById('modal');
+    document.getElementById('modal-form').reset();
+    if (id) {
+        const item = allData.find(d => d.id === id);
+        if (!item) return;
+        document.getElementById('modal-title').textContent = 'Edit Initiative';
+        document.getElementById('m-id').value = item.id;
+        document.getElementById('m-theme').value = item.theme;
+        document.getElementById('m-area').value = item.area;
+        document.getElementById('m-initiative').value = item.initiative;
+        document.getElementById('m-businessOwner').value = item.businessOwner || '';
+        document.getElementById('m-owner').value = item.owner;
+        document.getElementById('m-targetDate').value = item.targetDate;
+        document.getElementById('m-status').value = item.status;
+        document.getElementById('m-remarks').value = item.remarks || '';
+        document.getElementById('m-revision').value = item.revision;
+        document.getElementById('m-origDate').value = item.targetDate;
+    } else {
+        document.getElementById('modal-title').textContent = 'Add New Initiative';
+        document.getElementById('m-id').value = '';
+        document.getElementById('m-revision').value = '0';
+        document.getElementById('m-origDate').value = '';
+    }
+    modal.classList.remove('hidden');
+    document.getElementById('m-theme').focus();
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+async function saveModal(e) {
+    e.preventDefault();
+    const id = document.getElementById('m-id').value || genId();
+    let rev = parseInt(document.getElementById('m-revision').value) || 0;
+    const orig = document.getElementById('m-origDate').value;
+    const newD = document.getElementById('m-targetDate').value;
+    if (orig && newD && orig !== newD) rev++;
+    await saveItem({
+        id, theme: document.getElementById('m-theme').value.trim(),
+        area: document.getElementById('m-area').value.trim(),
+        initiative: document.getElementById('m-initiative').value.trim(),
+        businessOwner: document.getElementById('m-businessOwner').value.trim(),
+        owner: document.getElementById('m-owner').value.trim(),
+        targetDate: newD, revision: rev,
+        status: document.getElementById('m-status').value,
+        remarks: document.getElementById('m-remarks').value.trim()
+    });
+    closeModal();
+    return false;
+}
+
+function editItem(id) { openModal(id); }
+
+// ====================================================================
+// DELETE
+// ====================================================================
+function deleteItem(id) { deleteTargetId = id; document.getElementById('confirm-dialog').classList.remove('hidden'); }
+function closeConfirm() { deleteTargetId = null; document.getElementById('confirm-dialog').classList.add('hidden'); }
+async function confirmDelete() { if (deleteTargetId) { await deleteItemFromDb(deleteTargetId); } closeConfirm(); }
+
+// ====================================================================
+// ENTRY SCREEN
+// ====================================================================
+async function saveEntryForm(e) {
+    e.preventDefault();
+    await saveItem({
+        id: genId(), theme: document.getElementById('ef-theme').value.trim(),
+        area: document.getElementById('ef-area').value.trim(),
+        initiative: document.getElementById('ef-initiative').value.trim(),
+        businessOwner: document.getElementById('ef-businessOwner').value.trim(),
+        owner: document.getElementById('ef-owner').value.trim(),
+        targetDate: document.getElementById('ef-targetDate').value,
+        revision: 0, status: document.getElementById('ef-status').value,
+        remarks: document.getElementById('ef-remarks').value.trim()
+    });
+    document.getElementById('entry-form').reset();
+    switchTab('dashboard');
+    return false;
+}
+
+// ====================================================================
+// TABS
+// ====================================================================
+function switchTab(tab) {
+    const dv = document.getElementById('view-dashboard');
+    const ev = document.getElementById('view-entry');
+    const td = document.getElementById('tab-dashboard');
+    const te = document.getElementById('tab-entry');
+    const act = 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300';
+    const ina = 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800';
+    if (tab === 'dashboard') {
+        dv.classList.remove('hidden'); ev.classList.add('hidden');
+        td.className = `tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${act}`;
+        te.className = `tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${ina}`;
+        history.replaceState(null, '', location.pathname);
+    } else {
+        dv.classList.add('hidden'); ev.classList.remove('hidden');
+        td.className = `tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${ina}`;
+        te.className = `tab-btn px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${act}`;
+        history.replaceState(null, '', location.pathname + '?mode=add');
+    }
+}
+
+// ====================================================================
+// DARK MODE
+// ====================================================================
+function toggleDarkMode() {
+    document.documentElement.classList.toggle('dark');
+    const dk = document.documentElement.classList.contains('dark');
+    localStorage.setItem('dm_dark_mode', dk ? 'dark' : 'light');
+    document.getElementById('icon-sun').classList.toggle('hidden', dk);
+    document.getElementById('icon-moon').classList.toggle('hidden', !dk);
+}
+function initDarkMode() {
+    const p = localStorage.getItem('dm_dark_mode');
+    const dk = p ? p === 'dark' : true;
+    document.documentElement.classList.toggle('dark', dk);
+    document.getElementById('icon-sun').classList.toggle('hidden', dk);
+    document.getElementById('icon-moon').classList.toggle('hidden', !dk);
+}
+
+// ====================================================================
+// EXPORT CSV
+// ====================================================================
+function exportCSV() {
+    const data = allData;
+    const h = ['Theme','Area','Initiative','Business Owner','Owner','Target Date','Revision','Status','Remarks'];
+    const rows = data.map(d => [d.theme, d.area, d.initiative, d.businessOwner, d.owner, d.targetDate, 'R'+d.revision, d.status, d.remarks]);
+    const csv = [h,...rows].map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'}));
+    a.download = `DM_Dashboard_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(a.href);
+}
+
+// resetToSample is defined above in DATA STORE section
+
+// ====================================================================
+// URL ROUTING & KEYBOARD
+// ====================================================================
+function handleURL() {
+    const p = new URLSearchParams(location.search);
+    if (p.get('mode') === 'add') switchTab('entry');
+    else if (p.get('edit')) { switchTab('dashboard'); setTimeout(() => editItem(p.get('edit')), 100); }
+    else switchTab('dashboard');
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeConfirm(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); openModal(); }
+});
+document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('confirm-dialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(); });
+
+// ====================================================================
+// INIT
+// ====================================================================
+initDarkMode();
+handleURL();
+// Initial load from Supabase
+fetchAll();
+</script>
+</body>
+</html>
