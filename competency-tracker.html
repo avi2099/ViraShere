@@ -171,7 +171,7 @@ const COE_COLORS = {
 };
 
 const SEED_EMPLOYEES = [
-  { id: 'E001', name: 'Vikash Kumar', role: 'Chief Data Officer', level: 'IL2', team: 'CDO Office', department: 'CDO Office', reportsTo: null },
+  { id: 'E001', name: 'Vikash Srivastava', role: 'Chief Data Officer', level: 'IL2', team: 'CDO Office', department: 'CDO Office', reportsTo: null },
   { id: 'E002', name: 'Rajesh Sharma', role: 'Head - Data Platform & Engineering', level: 'IL3', team: 'COE 1 - Data Platform & Engineering', department: 'COE 1 - Data Platform & Engineering', reportsTo: 'E001' },
   { id: 'E003', name: 'Priya Venkatesh', role: 'Head - Semantic & AI Enablement', level: 'IL3', team: 'COE 2 - Semantic & AI Enablement', department: 'COE 2 - Semantic & AI Enablement', reportsTo: 'E001' },
   { id: 'E004', name: 'Anand Mishra', role: 'Head - Enterprise Governance & Quality', level: 'IL3', team: 'COE 3 - Enterprise Governance & Quality', department: 'COE 3 - Enterprise Governance & Quality', reportsTo: 'E001' },
@@ -929,8 +929,9 @@ const NAV_ITEMS = [
 function isAdminUser(emp) {
   if (!emp) return false;
   if (emp.level === 'IL2') return true;
-  const adminNames = JSON.parse(localStorage.getItem('ct_admins') || '["Abhimanyu"]');
-  return adminNames.map(n => n.toLowerCase()).includes(emp.name.toLowerCase());
+  const defaultAdmins = ["Vikash Srivastava", "Abhimanyu Kumar Singh"];
+  const adminNames = JSON.parse(localStorage.getItem('ct_admins') || JSON.stringify(defaultAdmins));
+  return adminNames.some(n => emp.name.toLowerCase().includes(n.toLowerCase()) || n.toLowerCase().includes(emp.name.toLowerCase()));
 }
 
 function Sidebar({ activePage, onNavigate, currentUser, employees }) {
