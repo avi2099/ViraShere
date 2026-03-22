@@ -1769,6 +1769,26 @@ function FrameworkPage({ categories, onUpdateCategories }) {
   const [showNewComp, setShowNewComp] = useState(null);
   const [newCompName, setNewCompName] = useState('');
   const [newCompDesc, setNewCompDesc] = useState('');
+  const [bulkEditCat, setBulkEditCat] = useState(null);
+  const [bulkText, setBulkText] = useState('');
+
+  function openBulkEdit(cat) {
+    setBulkEditCat(cat.id);
+    setBulkText(cat.competencies.map(c => c.name).join('\n'));
+  }
+  function saveBulkEdit(catId) {
+    const lines = bulkText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const cat = categories.find(c => c.id === catId);
+    const existing = cat ? cat.competencies : [];
+    const newComps = lines.map(line => {
+      const found = existing.find(c => c.name.toLowerCase() === line.toLowerCase());
+      return found ? found : { id: uid(), name: line, description: '' };
+    });
+    const updated = categories.map(c => c.id === catId ? {...c, competencies: newComps} : c);
+    onUpdateCategories(updated);
+    setBulkEditCat(null);
+    setBulkText('');
+  }
 
   function addCategory() {
     if (!newCatName.trim()) return;
@@ -1852,11 +1872,28 @@ function FrameworkPage({ categories, onUpdateCategories }) {
               <span className="text-xs" style={{color:'var(--text-muted)'}}>({cat.competencies.length} competencies)</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setShowNewComp(cat.id)} className="btn-ghost text-xs">+ Add Competency</button>
+              <button onClick={() => openBulkEdit(cat)} className="btn-ghost text-xs" style={{color:'#9B6EF8'}}>Bulk Edit</button>
+              <button onClick={() => setShowNewComp(cat.id)} className="btn-ghost text-xs">+ Add</button>
               <button onClick={() => setEditCat({...cat})} className="btn-ghost text-xs">Edit</button>
               <button onClick={() => deleteCategory(cat.id)} className="text-xs px-2 py-1 rounded hover:bg-red-900/30" style={{color:'#E84040'}}>Delete</button>
             </div>
           </div>
+          {bulkEditCat === cat.id && (
+            <div className="p-3 rounded-lg mb-3" style={{background:'var(--bg-tertiary)',border:'1px solid #9B6EF844'}}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold" style={{color:'#9B6EF8'}}>Bulk Edit — One skill per line</div>
+                <div className="text-xs" style={{color:'var(--text-muted)'}}>Add, remove, or reorder. Paste from Excel works!</div>
+              </div>
+              <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} className="w-full text-sm mb-2 font-mono" rows={Math.max(6, bulkText.split('\n').length + 2)} placeholder={"Skill 1\nSkill 2\nSkill 3\n..."} style={{lineHeight:'1.8'}} />
+              <div className="flex items-center justify-between">
+                <div className="text-xs" style={{color:'var(--text-muted)'}}>{bulkText.split('\n').filter(l => l.trim()).length} skills</div>
+                <div className="flex gap-2">
+                  <button onClick={() => saveBulkEdit(cat.id)} className="btn-primary text-xs">Save Changes</button>
+                  <button onClick={() => {setBulkEditCat(null);setBulkText('');}} className="btn-ghost text-xs">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
           {showNewComp === cat.id && (
             <div className="p-3 rounded-lg mb-3" style={{background:'var(--bg-tertiary)'}}>
               <input type="text" value={newCompName} onChange={e => setNewCompName(e.target.value)} placeholder="Competency Name" className="w-full text-sm mb-2" />
