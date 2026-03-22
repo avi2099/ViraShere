@@ -860,15 +860,20 @@ function Heatmap({ rows, columns, getData, getRowLabel, getColLabel }) {
 // ═══════════════════════════════════════════════════════════════
 
 function TataLogo() {
+  const blue = '#4A90D9';
   return (
-    <div className="tata-logo-svg">
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="2" width="36" height="36" rx="8" fill="#1565C0" stroke="#1976D2" strokeWidth="1.5"/>
-        <path d="M10 13H30V17H22.5V30H17.5V17H10V13Z" fill="white"/>
+    <div className="tata-logo-svg" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+      <svg width="48" height="44" viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg">
+        {/* Left flowing curve */}
+        <path d="M60 5 C28 5, 4 35, 4 72 C4 82, 7 90, 13 95 C18 99, 24 98, 28 94 C32 89, 32 82, 32 72 C32 48, 44 28, 60 28" fill="none" stroke={blue} strokeWidth="11" strokeLinecap="round"/>
+        {/* Right flowing curve */}
+        <path d="M60 5 C92 5, 116 35, 116 72 C116 82, 113 90, 107 95 C102 99, 96 98, 92 94 C88 89, 88 82, 88 72 C88 48, 76 28, 60 28" fill="none" stroke={blue} strokeWidth="11" strokeLinecap="round"/>
+        {/* T horizontal bar */}
+        <rect x="38" y="42" width="44" height="10" rx="2" fill={blue}/>
+        {/* T vertical bar */}
+        <rect x="53" y="42" width="14" height="62" rx="2" fill={blue}/>
       </svg>
-      <div>
-        <div className="font-extrabold text-sm tracking-widest" style={{color:'#1565C0',lineHeight:'1.1'}}>TATA STEEL</div>
-      </div>
+      <div className="font-extrabold tracking-widest" style={{color:blue,fontSize:'9.5px',letterSpacing:'3.5px',lineHeight:'1'}}>TATA STEEL</div>
     </div>
   );
 }
