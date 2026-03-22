@@ -926,10 +926,17 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: '\u2699' },
 ];
 
+function isAdminUser(emp) {
+  if (!emp) return false;
+  if (emp.level === 'IL2') return true;
+  const adminNames = JSON.parse(localStorage.getItem('ct_admins') || '["Abhimanyu"]');
+  return adminNames.map(n => n.toLowerCase()).includes(emp.name.toLowerCase());
+}
+
 function Sidebar({ activePage, onNavigate, currentUser, employees }) {
   const emp = employees.find(e => e.id === currentUser);
   const isManager = emp && ['IL2','IL3','IL4'].includes(emp.level);
-  const isCDO = emp && emp.level === 'IL2';
+  const isCDO = isAdminUser(emp);
   return (
     <aside className="flex-shrink-0 overflow-y-auto" style={{width:240,background:'var(--sidebar-bg)',borderRight:'1px solid var(--border-color)',minHeight:'calc(100vh - 52px)',boxShadow:'var(--sidebar-shadow)',transition:'background-color .3s'}}>
       <nav className="py-3">
@@ -2490,6 +2497,7 @@ function SettingsPage({ onReset, isCDO, onDataVersionBump }) {
 function EmployeeManagementPage({ employees, onUpdateEmployees, assessments, nominations, onUpdateAssessments, onUpdateNominations }) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formName, setFormName] = useState('');
   const [formRole, setFormRole] = useState('');
@@ -2544,6 +2552,8 @@ function EmployeeManagementPage({ employees, onUpdateEmployees, assessments, nom
   }
 
   function handleDelete(empId) {
+    const emp = employees.find(e => e.id === empId);
+    if (emp && emp.level === 'IL2') { setSavedMsg('Cannot delete CDO record.'); setTimeout(() => setSavedMsg(''), 3000); setConfirmDelete(null); return; }
     const updated = employees.filter(e => e.id !== empId);
     // Reassign reports: anyone reporting to deleted employee now reports to that employee's manager
     const deleted = employees.find(e => e.id === empId);
@@ -2564,8 +2574,22 @@ function EmployeeManagementPage({ employees, onUpdateEmployees, assessments, nom
     <div className="fade-in space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold" style={{color:'#E8A020'}}>Employee Management</h2>
-        <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-primary text-sm">+ Add Employee</button>
+        <div className="flex gap-2">
+          <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-primary text-sm">+ Add Employee</button>
+          <button onClick={() => setShowDeleteAll(true)} className="text-sm px-3 py-1.5 rounded-lg font-semibold" style={{background:'#EF444422',border:'1px solid #EF444455',color:'#EF4444',cursor:'pointer'}}>Delete All</button>
+        </div>
       </div>
+
+      {showDeleteAll && (
+        <div className="p-4 rounded-lg" style={{background:'#EF444415',border:'1px solid #EF444444'}}>
+          <p className="text-sm font-semibold mb-2" style={{color:'#EF4444'}}>Are you sure you want to delete ALL employees except CDO?</p>
+          <p className="text-xs mb-3" style={{color:'var(--text-muted)'}}>This will remove {employees.filter(e => e.level !== 'IL2').length} employees and their assessments & nominations. The CDO record will be preserved.</p>
+          <div className="flex gap-2">
+            <button onClick={() => { const cdo = employees.filter(e => e.level === 'IL2'); const removedIds = employees.filter(e => e.level !== 'IL2').map(e => e.id); const keptAssessments = assessments.filter(a => !removedIds.includes(a.employeeId)); const keptNominations = nominations.filter(n => !removedIds.includes(n.employeeId)); onUpdateEmployees(cdo); onUpdateAssessments(keptAssessments); onUpdateNominations(keptNominations); localStorage.setItem('ct_employees', JSON.stringify(cdo)); localStorage.setItem('ct_assessments', JSON.stringify(keptAssessments)); localStorage.setItem('ct_nominations', JSON.stringify(keptNominations)); setShowDeleteAll(false); setSavedMsg('All employees except CDO deleted.'); setTimeout(() => setSavedMsg(''), 3000); }} className="text-sm px-3 py-1.5 rounded-lg font-semibold" style={{background:'#EF4444',color:'#FFF',cursor:'pointer',border:'none'}}>Yes, Delete All (Keep CDO)</button>
+            <button onClick={() => setShowDeleteAll(false)} className="btn-ghost text-sm">Cancel</button>
+          </div>
+        </div>
+      )}
 
       {savedMsg && <div className="p-3 rounded-lg text-sm" style={{background:'#1EC88A22',border:'1px solid #1EC88A44',color:'#1EC88A'}}>{savedMsg}</div>}
 
@@ -2597,10 +2621,10 @@ function EmployeeManagementPage({ employees, onUpdateEmployees, assessments, nom
             </div>
             <div>
               <label className="text-xs block mb-1" style={{color:'var(--text-muted)'}}>Team / Department</label>
-              <select value={formTeam} onChange={e => setFormTeam(e.target.value)} className="w-full text-sm">
-                <option value="">Select Team</option>
-                {teams.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <input type="text" list="team-list" value={formTeam} onChange={e => setFormTeam(e.target.value)} placeholder="Type or select team" className="w-full text-sm" />
+              <datalist id="team-list">
+                {[...teams, 'CDO Office','Cloud & Lakehouse Architecture','Data Engineering & Pipelines','MLOps & DevSecOps','DataOps & Observability','API & Data Mesh Fabric','Enterprise Ontology & Knowledge Graph','Semantic / Metric Layer','Data Science & AI / ML','GenAI & LLM Enablement','Analytics Engineering & BI','Analytics Translation','Data Governance & Policy','Data Quality Management','Data Catalogue & Metadata','Master & Reference Data (MDM)','Data Privacy, Risk & Literacy','Raw Materials','Operations','GSP, Supply Chain & Logistics','Marketing & Sales','Corporate Services & Functions','Finance','HRM','SHS','Technology & R&D','Engineering & Projects','Shared Services'].filter((v,i,a) => a.indexOf(v) === i).sort().map(t => <option key={t} value={t} />)}
+              </datalist>
             </div>
             <div>
               <label className="text-xs block mb-1" style={{color:'var(--text-muted)'}}>Reports To</label>
@@ -2718,7 +2742,7 @@ function App() {
 
   const emp = employees.find(e => e.id === currentUser);
   const isManager = emp && ['IL2','IL3','IL4'].includes(emp.level);
-  const isCDO = emp && emp.level === 'IL2';
+  const isCDO = isAdminUser(emp);
 
   function handleUserChange(id) {
     setCurrentUser(id);
