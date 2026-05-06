@@ -935,7 +935,7 @@ function refreshViralData() {
       category: cat,
       imageUrl: `https://picsum.photos/seed/${Date.now() + i}/600/400`,
       link: '#',
-      upvotes: Math.floor(Math.random() * 50000) + 1000,
+      upvotes: Math.floor(Math.random() * 2000000) + 500000,
       region: region
     };
     if (cat === 'news') newsData.unshift(newItem);
@@ -944,15 +944,9 @@ function refreshViralData() {
     else if (cat === 'video') { newItem.videoId = 'dQw4w9WgXcQ'; videoData.unshift(newItem); }
   }
 
-  // Shuffle existing data slightly
-  [newsData, socialData, videoData, memeData].forEach(arr => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  });
-
+  displayCount[currentTab] = ITEMS_PER_PAGE;
   renderCurrentTab();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   showToast('🔄 Fresh viral content loaded!', 'success');
 }
 
